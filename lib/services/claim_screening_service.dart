@@ -15,13 +15,17 @@ class ScreeningResult {
   });
 }
 
-/// Deterministic rule checks (allowance balance, category eligibility) plus
-/// an optional OCR read of the receipt, appended to the note as context for
-/// the Approver — never as grounds to reject on its own. OCR here is free,
-/// on-device Tesseract, not a vision model (see receipt_ocr_service.dart),
-/// so it's too unreliable to decide anything by itself; every claim that
-/// passes the rule checks below still goes to the Approver either way, per
-/// the "ไม่แน่ใจ >> ส่งต่อ" rule. The AI never auto-approves.
+/// Deterministic rules, in the order the original spec lists them: balance,
+/// then receipt identity, then category, then amount-vs-balance. The AI
+/// never approves — every non-reject outcome here still goes to a human
+/// Approver, per "ไม่แน่ใจ >> ส่งต่อ".
+///
+/// The OCR identity/amount checks (via [receiptAnalysis]) are blunt by
+/// explicit request: an unreadable photo or a name not found in the OCR
+/// text both reject outright, even though many ordinary receipts have no
+/// printed customer name at all and free OCR misreads Thai text often.
+/// That false-reject risk was flagged and the request confirmed anyway —
+/// don't "soften" this back to a note without being asked.
 ScreeningResult screenClaim({
   required AppUser user,
   required String category,
@@ -36,6 +40,22 @@ ScreeningResult screenClaim({
     );
   }
 
+  if (receiptAnalysis != null && !receiptAnalysis.ocrReadable) {
+    return const ScreeningResult(
+      decision: ScreeningDecision.reject,
+      forwardAmount: 0,
+      note: 'อ่านข้อความจากใบเสร็จไม่ได้เลย กรุณาถ่ายรูปใหม่ให้ชัดเจนแล้วยื่นใหม่อีกครั้ง',
+    );
+  }
+
+  if (receiptAnalysis != null && !receiptAnalysis.nameFound) {
+    return ScreeningResult(
+      decision: ScreeningDecision.reject,
+      forwardAmount: 0,
+      note: 'ไม่พบชื่อ "${user.name}" ในใบเสร็จ',
+    );
+  }
+
   if (!user.allowedCategories.contains(category)) {
     return const ScreeningResult(
       decision: ScreeningDecision.reject,
@@ -44,13 +64,20 @@ ScreeningResult screenClaim({
     );
   }
 
-  final suffix = receiptAnalysis == null ? '' : ' | ${receiptAnalysis.note}';
+  if (receiptAnalysis != null && receiptAnalysis.amountMismatch) {
+    return ScreeningResult(
+      decision: ScreeningDecision.reject,
+      forwardAmount: 0,
+      note: 'ยอดเงินในใบเสร็จ (${receiptAnalysis.extractedAmount!.toStringAsFixed(2)} บาท) '
+          'ไม่ตรงกับยอดที่กรอก (${requestedAmount.toStringAsFixed(2)} บาท)',
+    );
+  }
 
   if (requestedAmount <= user.allowanceRemaining) {
     return ScreeningResult(
       decision: ScreeningDecision.forward,
       forwardAmount: requestedAmount,
-      note: 'วงเงินเพียงพอ ส่งต่อให้ Approver พิจารณา$suffix',
+      note: 'วงเงินเพียงพอ ส่งต่อให้ Approver พิจารณา',
     );
   }
 
@@ -58,6 +85,6 @@ ScreeningResult screenClaim({
     decision: ScreeningDecision.forward,
     forwardAmount: user.allowanceRemaining,
     note: 'วงเงินไม่พอเต็มจำนวน ส่งต่อเท่ากับวงเงินคงเหลือ '
-        '(${user.allowanceRemaining.toStringAsFixed(2)})$suffix',
+        '(${user.allowanceRemaining.toStringAsFixed(2)})',
   );
 }
