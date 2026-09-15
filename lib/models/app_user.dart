@@ -28,28 +28,16 @@ class AppUser {
     required this.allowedCategories,
   });
 
-  factory AppUser.fromMap(String uid, Map<String, dynamic> map) {
+  factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
-      uid: uid,
+      uid: map['id'] as String,
       name: map['name'] as String? ?? '',
       email: map['email'] as String? ?? '',
       department: map['department'] as String? ?? '',
       role: userRoleFromString(map['role'] as String? ?? 'user'),
-      allowanceTotal: (map['allowanceTotal'] as num?)?.toDouble() ?? 0,
-      allowanceRemaining: (map['allowanceRemaining'] as num?)?.toDouble() ?? 0,
-      allowedCategories: List<String>.from(map['allowedCategories'] as List? ?? const []),
+      allowanceTotal: (map['allowance_total'] as num?)?.toDouble() ?? 0,
+      allowanceRemaining: (map['allowance_remaining'] as num?)?.toDouble() ?? 0,
+      allowedCategories: List<String>.from(map['allowed_categories'] as List? ?? const []),
     );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'name': name,
-      'email': email,
-      'department': department,
-      'role': role.name,
-      'allowanceTotal': allowanceTotal,
-      'allowanceRemaining': allowanceRemaining,
-      'allowedCategories': allowedCategories,
-    };
   }
 }

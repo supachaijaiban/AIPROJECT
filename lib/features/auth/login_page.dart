@@ -1,6 +1,6 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app_state.dart';
 
@@ -29,8 +29,8 @@ class _LoginPageState extends State<LoginPage> {
         _passwordController.text,
       );
       await appState.refreshCurrentUser();
-    } on FirebaseAuthException catch (e) {
-      setState(() => _error = e.message ?? 'เข้าสู่ระบบไม่สำเร็จ');
+    } on AuthException catch (e) {
+      setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

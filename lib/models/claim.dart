@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum ClaimStatus { pendingApprove, approved, rejected }
 
 ClaimStatus claimStatusFromString(String value) {
@@ -40,38 +38,35 @@ class Claim {
     this.reviewedAt,
   });
 
-  factory Claim.fromMap(String id, Map<String, dynamic> map) {
+  factory Claim.fromMap(Map<String, dynamic> map) {
     return Claim(
-      id: id,
-      userId: map['userId'] as String? ?? '',
-      userName: map['userName'] as String? ?? '',
+      id: map['id'] as String,
+      userId: map['user_id'] as String,
+      userName: map['user_name'] as String? ?? '',
       category: map['category'] as String? ?? '',
-      requestedAmount: (map['requestedAmount'] as num?)?.toDouble() ?? 0,
-      approvedAmount: (map['approvedAmount'] as num?)?.toDouble() ?? 0,
-      receiptImageUrl: map['receiptImageUrl'] as String? ?? '',
+      requestedAmount: (map['requested_amount'] as num?)?.toDouble() ?? 0,
+      approvedAmount: (map['approved_amount'] as num?)?.toDouble() ?? 0,
+      receiptImageUrl: map['receipt_image_url'] as String? ?? '',
       status: claimStatusFromString(map['status'] as String? ?? 'pendingApprove'),
-      aiNote: map['aiNote'] as String?,
-      rejectReason: map['rejectReason'] as String?,
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      reviewedBy: map['reviewedBy'] as String?,
-      reviewedAt: (map['reviewedAt'] as Timestamp?)?.toDate(),
+      aiNote: map['ai_note'] as String?,
+      rejectReason: map['reject_reason'] as String?,
+      createdAt: DateTime.parse(map['created_at'] as String),
+      reviewedBy: map['reviewed_by'] as String?,
+      reviewedAt: map['reviewed_at'] == null ? null : DateTime.parse(map['reviewed_at'] as String),
     );
   }
 
-  Map<String, dynamic> toMap() {
+  Map<String, dynamic> toInsertMap() {
     return {
-      'userId': userId,
-      'userName': userName,
+      'user_id': userId,
+      'user_name': userName,
       'category': category,
-      'requestedAmount': requestedAmount,
-      'approvedAmount': approvedAmount,
-      'receiptImageUrl': receiptImageUrl,
+      'requested_amount': requestedAmount,
+      'approved_amount': approvedAmount,
+      'receipt_image_url': receiptImageUrl,
       'status': status.name,
-      'aiNote': aiNote,
-      'rejectReason': rejectReason,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'reviewedBy': reviewedBy,
-      'reviewedAt': reviewedAt == null ? null : Timestamp.fromDate(reviewedAt!),
+      'ai_note': aiNote,
+      'reject_reason': rejectReason,
     };
   }
 }

@@ -59,14 +59,13 @@ class ApproverDashboardPage extends StatelessWidget {
                           FilledButton(
                             onPressed: () => ClaimRepository().approveClaim(
                               claimId: claim.id,
-                              approverUid: appState.currentUser!.uid,
                               approvedAmount: claim.approvedAmount,
                             ),
                             child: const Text('อนุมัติ'),
                           ),
                           const SizedBox(width: 8),
                           OutlinedButton(
-                            onPressed: () => _rejectDialog(context, claim.id, appState.currentUser!.uid),
+                            onPressed: () => _rejectDialog(context, claim.id),
                             child: const Text('ปฏิเสธ'),
                           ),
                         ],
@@ -82,7 +81,7 @@ class ApproverDashboardPage extends StatelessWidget {
     );
   }
 
-  Future<void> _rejectDialog(BuildContext context, String claimId, String approverUid) async {
+  Future<void> _rejectDialog(BuildContext context, String claimId) async {
     final controller = TextEditingController();
     final reason = await showDialog<String>(
       context: context,
@@ -99,6 +98,6 @@ class ApproverDashboardPage extends StatelessWidget {
       ),
     );
     if (reason == null || reason.trim().isEmpty) return;
-    await ClaimRepository().rejectClaim(claimId: claimId, approverUid: approverUid, reason: reason.trim());
+    await ClaimRepository().rejectClaim(claimId: claimId, reason: reason.trim());
   }
 }

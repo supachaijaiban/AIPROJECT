@@ -1,6 +1,6 @@
 import 'dart:typed_data';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
 import '../models/claim.dart';
@@ -8,30 +8,30 @@ import 'claim_screening_service.dart';
 import 'storage_service.dart';
 
 class ClaimRepository {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final SupabaseClient _client = Supabase.instance.client;
   final StorageService _storage = StorageService();
 
   Stream<List<Claim>> streamClaimsForUser(String userId) {
-    return _db
-        .collection('claims')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map((d) => Claim.fromMap(d.id, d.data())).toList());
+    return _client
+        .from('claims')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .map((rows) => rows.map(Claim.fromMap).toList());
   }
 
   Stream<List<Claim>> streamPendingClaims() {
-    return _db
-        .collection('claims')
-        .where('status', isEqualTo: ClaimStatus.pendingApprove.name)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((s) => s.docs.map((d) => Claim.fromMap(d.id, d.data())).toList());
+    return _client
+        .from('claims')
+        .stream(primaryKey: ['id'])
+        .eq('status', ClaimStatus.pendingApprove.name)
+        .order('created_at', ascending: false)
+        .map((rows) => rows.map(Claim.fromMap).toList());
   }
 
   /// Runs the deterministic screening rules and writes the claim. The AI
   /// layer only ever picks reject-vs-forward here; approval always happens
-  /// in [approveClaim] by a human Approver.
+  /// via the approve_claim RPC, called only from the Approver's screen.
   Future<void> submitClaim({
     required AppUser user,
     required String category,
@@ -51,9 +51,8 @@ class ClaimRepository {
       requestedAmount: requestedAmount,
     );
 
-    final claimRef = _db.collection('claims').doc();
-    await claimRef.set(Claim(
-      id: claimRef.id,
+    final claim = Claim(
+      id: '',
       userId: user.uid,
       userName: user.name,
       category: category,
@@ -66,50 +65,22 @@ class ClaimRepository {
       aiNote: result.note,
       rejectReason: result.decision == ScreeningDecision.reject ? result.note : null,
       createdAt: DateTime.now(),
-    ).toMap());
+    );
+
+    await _client.from('claims').insert(claim.toInsertMap());
   }
 
-  /// Approves a claim and deducts the user's remaining allowance atomically,
-  /// so two approvals racing on the same user can't both read a stale balance.
-  Future<void> approveClaim({
-    required String claimId,
-    required String approverUid,
-    required double approvedAmount,
-  }) async {
-    await _db.runTransaction((tx) async {
-      final claimRef = _db.collection('claims').doc(claimId);
-      final claimSnap = await tx.get(claimRef);
-      if (!claimSnap.exists) throw Exception('Claim not found');
-      final claim = Claim.fromMap(claimSnap.id, claimSnap.data()!);
-      if (claim.status != ClaimStatus.pendingApprove) {
-        throw Exception('Claim already reviewed');
-      }
-
-      final userRef = _db.collection('users').doc(claim.userId);
-      final userSnap = await tx.get(userRef);
-      final currentRemaining = (userSnap.data()?['allowanceRemaining'] as num?)?.toDouble() ?? 0;
-      final newRemaining = (currentRemaining - approvedAmount).clamp(0, double.infinity);
-
-      tx.update(userRef, {'allowanceRemaining': newRemaining});
-      tx.update(claimRef, {
-        'status': ClaimStatus.approved.name,
-        'approvedAmount': approvedAmount,
-        'reviewedBy': approverUid,
-        'reviewedAt': Timestamp.now(),
-      });
+  Future<void> approveClaim({required String claimId, required double approvedAmount}) {
+    return _client.rpc('approve_claim', params: {
+      'p_claim_id': claimId,
+      'p_approved_amount': approvedAmount,
     });
   }
 
-  Future<void> rejectClaim({
-    required String claimId,
-    required String approverUid,
-    required String reason,
-  }) async {
-    await _db.collection('claims').doc(claimId).update({
-      'status': ClaimStatus.rejected.name,
-      'rejectReason': reason,
-      'reviewedBy': approverUid,
-      'reviewedAt': Timestamp.now(),
+  Future<void> rejectClaim({required String claimId, required String reason}) {
+    return _client.rpc('reject_claim', params: {
+      'p_claim_id': claimId,
+      'p_reason': reason,
     });
   }
 }

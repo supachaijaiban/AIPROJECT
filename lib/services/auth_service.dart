@@ -1,27 +1,25 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/app_user.dart';
 
 class AuthService {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  final SupabaseClient _client = Supabase.instance.client;
 
-  Stream<User?> get authStateChanges => _auth.authStateChanges();
+  Stream<AuthState> get authStateChanges => _client.auth.onAuthStateChange;
 
-  User? get currentFirebaseUser => _auth.currentUser;
+  User? get currentUser => _client.auth.currentUser;
 
-  Future<UserCredential> signIn(String email, String password) {
-    return _auth.signInWithEmailAndPassword(email: email, password: password);
+  Future<void> signIn(String email, String password) {
+    return _client.auth.signInWithPassword(email: email, password: password);
   }
 
-  Future<void> signOut() => _auth.signOut();
+  Future<void> signOut() => _client.auth.signOut();
 
   Future<AppUser?> loadCurrentAppUser() async {
-    final uid = _auth.currentUser?.uid;
+    final uid = _client.auth.currentUser?.id;
     if (uid == null) return null;
-    final doc = await _db.collection('users').doc(uid).get();
-    if (!doc.exists) return null;
-    return AppUser.fromMap(uid, doc.data()!);
+    final row = await _client.from('profiles').select().eq('id', uid).maybeSingle();
+    if (row == null) return null;
+    return AppUser.fromMap(row);
   }
 }

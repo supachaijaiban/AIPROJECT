@@ -9,8 +9,8 @@ class AppState extends ChangeNotifier {
   bool loading = true;
 
   AppState(this.authService) {
-    authService.authStateChanges.listen((firebaseUser) async {
-      if (firebaseUser == null) {
+    authService.authStateChanges.listen((state) async {
+      if (state.session == null) {
         currentUser = null;
       } else {
         currentUser = await authService.loadCurrentAppUser();
