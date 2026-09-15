@@ -1,6 +1,6 @@
 # ระบบขอเบิกสวัสดิการ (Welfare Claim)
 
-Flutter Web + Supabase (Auth / Postgres / Storage), deploy อัตโนมัติผ่าน GitHub Actions ไป **Firebase Hosting** (ใช้แค่ hosting เฉยๆ ไม่ได้ใช้ Firebase เป็น backend แล้ว)
+Flutter Web + Supabase (Auth / Postgres / Storage), deploy อัตโนมัติผ่าน GitHub Actions ไป **GitHub Pages**
 
 ## โครงสร้าง
 
@@ -30,9 +30,11 @@ Flutter Web + Supabase (Auth / Postgres / Storage), deploy อัตโนมั
    allowed_categories: {"ค่ารักษาพยาบาล","ค่าเล่าเรียนบุตร"}
    ```
 
-## Hosting: GitHub Actions → Firebase Hosting
+## Hosting: GitHub Actions → GitHub Pages
 
-ต้องเพิ่ม repo secret `FIREBASE_SERVICE_ACCOUNT` (JSON ของ service account ที่มีสิทธิ์ Firebase Hosting Admin — สร้างที่ Firebase Console → Project Settings → Service Accounts → Generate new private key) `projectId` ใน `.github/workflows/deploy.yml` ตั้งไว้เป็น `ai-welfare-process-8f83f` แล้ว
+ครั้งแรกต้องเปิดใช้งานเอง (ทำครั้งเดียว): repo → **Settings → Pages → Build and deployment → Source** เลือก **GitHub Actions** จากนั้น push ขึ้น `main` แล้วรอ workflow รันจบ เว็บจะขึ้นที่ `https://supachaijaiban.github.io/AIPROJECT/`
+
+Firebase project (`ai-welfare-process-8f83f`) ยังอยู่แต่ไม่ได้ใช้งานแล้ว (ไม่มีค่าใช้จ่ายถ้าไม่ใช้) — ลบทิ้งได้ถ้าไม่ต้องการเก็บไว้
 
 ## รันบนเครื่อง
 
