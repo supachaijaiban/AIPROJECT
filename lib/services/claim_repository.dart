@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/app_user.dart';
 import '../models/claim.dart';
 import 'claim_screening_service.dart';
+import 'receipt_analysis_service.dart';
 import 'storage_service.dart';
 
 class ClaimRepository {
@@ -47,6 +48,7 @@ class ClaimRepository {
     required double requestedAmount,
     required String fileName,
     required Uint8List receiptBytes,
+    ReceiptAnalysis? receiptAnalysis,
   }) async {
     final receiptUrl = await _storage.uploadReceipt(
       userId: user.uid,
@@ -58,6 +60,7 @@ class ClaimRepository {
       user: user,
       category: category,
       requestedAmount: requestedAmount,
+      receiptAnalysis: receiptAnalysis,
     );
 
     final claim = Claim(

@@ -1,4 +1,5 @@
 import '../models/app_user.dart';
+import 'receipt_analysis_service.dart';
 
 enum ScreeningDecision { forward, reject }
 
@@ -14,16 +15,18 @@ class ScreeningResult {
   });
 }
 
-/// Deterministic rule checks only (allowance balance, category eligibility).
-/// Receipt-content checks (payee name match, amount/category read off the
-/// image) need a vision/OCR model and are not wired in yet — until that
-/// exists, every claim that passes the rule checks below is still forwarded
-/// to the Approver to eyeball the receipt itself, per the "ไม่แน่ใจ >> ส่งต่อ"
-/// rule. The AI never auto-approves; it only decides reject-vs-forward.
+/// Deterministic rule checks (allowance balance, category eligibility) plus
+/// an optional OCR read of the receipt, appended to the note as context for
+/// the Approver — never as grounds to reject on its own. OCR here is free,
+/// on-device Tesseract, not a vision model (see receipt_ocr_service.dart),
+/// so it's too unreliable to decide anything by itself; every claim that
+/// passes the rule checks below still goes to the Approver either way, per
+/// the "ไม่แน่ใจ >> ส่งต่อ" rule. The AI never auto-approves.
 ScreeningResult screenClaim({
   required AppUser user,
   required String category,
   required double requestedAmount,
+  ReceiptAnalysis? receiptAnalysis,
 }) {
   if (user.allowanceRemaining <= 0) {
     return const ScreeningResult(
@@ -41,17 +44,20 @@ ScreeningResult screenClaim({
     );
   }
 
+  final suffix = receiptAnalysis == null ? '' : ' | ${receiptAnalysis.note}';
+
   if (requestedAmount <= user.allowanceRemaining) {
     return ScreeningResult(
       decision: ScreeningDecision.forward,
       forwardAmount: requestedAmount,
-      note: 'วงเงินเพียงพอ ส่งต่อให้ Approver พิจารณา',
+      note: 'วงเงินเพียงพอ ส่งต่อให้ Approver พิจารณา$suffix',
     );
   }
 
   return ScreeningResult(
     decision: ScreeningDecision.forward,
     forwardAmount: user.allowanceRemaining,
-    note: 'วงเงินไม่พอเต็มจำนวน ส่งต่อเท่ากับวงเงินคงเหลือ (${user.allowanceRemaining.toStringAsFixed(2)})',
+    note: 'วงเงินไม่พอเต็มจำนวน ส่งต่อเท่ากับวงเงินคงเหลือ '
+        '(${user.allowanceRemaining.toStringAsFixed(2)})$suffix',
   );
 }

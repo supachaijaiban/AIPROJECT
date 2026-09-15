@@ -31,6 +31,17 @@
 
   <title>welfare_claim</title>
   <link rel="manifest" href="manifest.json">
+
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+  <script>
+    // Thin bridge called from Dart (lib/services/receipt_ocr_service.dart).
+    // Loads the Thai+English OCR models on first call; browser caches them after that.
+    window.ocrReceipt = function (dataUrl) {
+      return Tesseract.recognize(dataUrl, 'tha+eng').then(function (result) {
+        return result.data.text;
+      });
+    };
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

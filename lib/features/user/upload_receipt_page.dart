@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 
 import '../../app_state.dart';
 import '../../services/claim_repository.dart';
+import '../../services/receipt_analysis_service.dart';
+import '../../services/receipt_ocr_service.dart';
 
 class UploadReceiptPage extends StatefulWidget {
   const UploadReceiptPage({super.key});
@@ -19,6 +21,8 @@ class _UploadReceiptPageState extends State<UploadReceiptPage> {
   String? _category;
   XFile? _pickedFile;
   Uint8List? _pickedBytes;
+  String? _ocrText;
+  bool _ocrRunning = false;
   bool _submitting = false;
   String? _error;
 
@@ -29,7 +33,25 @@ class _UploadReceiptPageState extends State<UploadReceiptPage> {
     setState(() {
       _pickedFile = file;
       _pickedBytes = bytes;
+      _ocrText = null;
+      _ocrRunning = true;
     });
+
+    try {
+      final text = await extractReceiptText(bytes, _guessMimeType(file.name));
+      if (mounted) setState(() => _ocrText = text);
+    } catch (_) {
+      // OCR is a best-effort hint — submission still works without it.
+    } finally {
+      if (mounted) setState(() => _ocrRunning = false);
+    }
+  }
+
+  String _guessMimeType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.webp')) return 'image/webp';
+    return 'image/jpeg';
   }
 
   Future<void> _submit() async {
@@ -47,12 +69,17 @@ class _UploadReceiptPageState extends State<UploadReceiptPage> {
     });
 
     try {
+      final analysis = _ocrText == null
+          ? null
+          : analyzeReceiptText(_ocrText!, userEnteredAmount: amount, userName: user.name);
+
       await ClaimRepository().submitClaim(
         user: user,
         category: _category!,
         requestedAmount: amount,
         fileName: _pickedFile!.name,
         receiptBytes: _pickedBytes!,
+        receiptAnalysis: analysis,
       );
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -82,6 +109,14 @@ class _UploadReceiptPageState extends State<UploadReceiptPage> {
             icon: const Icon(Icons.photo),
             label: Text(_pickedBytes == null ? 'แนบรูปใบเสร็จ' : 'เปลี่ยนรูปใบเสร็จ'),
           ),
+          if (_ocrRunning) ...[
+            const SizedBox(height: 8),
+            const Row(children: [
+              SizedBox(height: 14, width: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+              SizedBox(width: 8),
+              Text('กำลังอ่านข้อความจากใบเสร็จ...', style: TextStyle(color: Colors.grey)),
+            ]),
+          ],
           const SizedBox(height: 16),
           DropdownButtonFormField<String>(
             initialValue: _category,
