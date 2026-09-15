@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() { return request.auth != null; }
+    function currentRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    function isApprover() { return isSignedIn() && currentRole() in ['approver', 'admin']; }
+
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isApprover());
+      // Only an Approver may touch a user doc, and only to adjust the
+      // remaining balance after a decision — never role/total from the client.
+      allow update: if isApprover()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['allowanceRemaining']);
+      allow create, delete: if false; // provisioned manually (console/admin import)
+    }
+
+    match /claims/{claimId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isApprover());
+      // A user may only file a claim for themselves, and can never write
+      // itself straight to "approved" — that transition is Approver-only below.
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.status in ['pendingApprove', 'rejected']
+        && request.resource.data.reviewedBy == null
+        && request.resource.data.reviewedAt == null;
+      allow update: if isApprover()
+        && resource.data.status == 'pendingApprove'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'approvedAmount', 'reviewedBy', 'reviewedAt', 'rejectReason']);
+      allow delete: if false;
+    }
+  }
+}
