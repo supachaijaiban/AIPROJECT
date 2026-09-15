@@ -57,10 +57,7 @@ class ApproverDashboardPage extends StatelessWidget {
                       Row(
                         children: [
                           FilledButton(
-                            onPressed: () => ClaimRepository().approveClaim(
-                              claimId: claim.id,
-                              approvedAmount: claim.approvedAmount,
-                            ),
+                            onPressed: () => _approve(context, claim.id, claim.approvedAmount),
                             child: const Text('อนุมัติ'),
                           ),
                           const SizedBox(width: 8),
@@ -81,6 +78,16 @@ class ApproverDashboardPage extends StatelessWidget {
     );
   }
 
+  Future<void> _approve(BuildContext context, String claimId, double approvedAmount) async {
+    try {
+      await ClaimRepository().approveClaim(claimId: claimId, approvedAmount: approvedAmount);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('อนุมัติไม่สำเร็จ: $e')));
+      }
+    }
+  }
+
   Future<void> _rejectDialog(BuildContext context, String claimId) async {
     final controller = TextEditingController();
     final reason = await showDialog<String>(
@@ -98,6 +105,12 @@ class ApproverDashboardPage extends StatelessWidget {
       ),
     );
     if (reason == null || reason.trim().isEmpty) return;
-    await ClaimRepository().rejectClaim(claimId: claimId, reason: reason.trim());
+    try {
+      await ClaimRepository().rejectClaim(claimId: claimId, reason: reason.trim());
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('ปฏิเสธไม่สำเร็จ: $e')));
+      }
+    }
   }
 }

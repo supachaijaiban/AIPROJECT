@@ -20,13 +20,22 @@ class ClaimRepository {
         .map((rows) => rows.map(Claim.fromMap).toList());
   }
 
+  /// Streams every claim visible to the caller (RLS scopes this to "own
+  /// claims" for a user, "all claims" for an approver) and filters to
+  /// pending ones in Dart. A server-side `.eq('status', ...)` filter looks
+  /// right but silently stops delivering a row once its status changes to
+  /// something outside the filter, so an approved/rejected claim would never
+  /// be pushed to clients as "no longer pending" — it'd just stay stuck in
+  /// the list until the next full reload.
   Stream<List<Claim>> streamPendingClaims() {
     return _client
         .from('claims')
         .stream(primaryKey: ['id'])
-        .eq('status', ClaimStatus.pendingApprove.name)
         .order('created_at', ascending: false)
-        .map((rows) => rows.map(Claim.fromMap).toList());
+        .map((rows) => rows
+            .map(Claim.fromMap)
+            .where((claim) => claim.status == ClaimStatus.pendingApprove)
+            .toList());
   }
 
   /// Runs the deterministic screening rules and writes the claim. The AI

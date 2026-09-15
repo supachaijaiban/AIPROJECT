@@ -32,6 +32,11 @@ create table claims (
 alter table profiles enable row level security;
 alter table claims enable row level security;
 
+-- Required for the app's .stream() calls (Supabase Realtime) — without
+-- this, ClaimRepository's live claim lists never emit and just spin forever.
+alter publication supabase_realtime add table claims;
+alter publication supabase_realtime add table profiles;
+
 create function is_approver() returns boolean
   language sql security definer stable as $$
   select exists (
